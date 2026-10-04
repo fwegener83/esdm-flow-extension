@@ -1,0 +1,36 @@
+apiVersion: github.com/fwegener83/esdm-flow-extension/flow/v0
+kind: flow
+name: event-not-published-by-command
+description: Shipping an order cannot produce a cancellation.
+scope: { domain: shop }
+slices:
+  - name: alice-places-order
+    type: command
+    trigger: { actor: customer, persona: alice }
+    aggregate: { boundedContext: ordering, aggregate: order, instance: o-1, provenance: generated }
+    when:
+      command: place
+      data: { customerId: c-alice, product: book, quantity: 2, unitPrice: 12.5 }
+      provenance: { customerId: input, product: input, quantity: input, unitPrice: input }
+    then:
+      events:
+        - event: placed
+          data: { orderId: o-1, customerId: c-alice, product: book, quantity: 2, total: 25 }
+          provenance:
+            total:
+              derived:
+                from: [ { command: place, field: quantity }, { command: place, field: unitPrice } ]
+                rule: quantity × unitPrice
+  - name: clerk-ships-order
+    type: command
+    trigger: { actor: warehouse-clerk }
+    aggregate: { boundedContext: ordering, aggregate: order, instance: o-1 }
+    when:
+      command: ship
+      data: { orderId: o-1 }
+      provenance: { orderId: input }
+    then:
+      events:
+        - event: canceled
+          data: { orderId: o-1, reason: shipped, canceledAt: "2026-10-05T14:30:00Z" }
+          provenance: { reason: constant, canceledAt: clock }

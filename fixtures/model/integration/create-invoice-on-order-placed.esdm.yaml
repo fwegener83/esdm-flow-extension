@@ -1,0 +1,16 @@
+apiVersion: schema.esdm.io/core/v1
+kind: policy
+name: create-invoice-on-order-placed
+scope:
+  domain: shop
+deliveryGuarantee: at-least-once
+idempotency:
+  owner: self
+handles:
+  - boundedContext: ordering
+    aggregate: order
+    event: placed
+emits:
+  - boundedContext: billing
+    aggregate: invoice
+    command: create

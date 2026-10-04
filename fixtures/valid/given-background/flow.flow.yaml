@@ -1,0 +1,27 @@
+apiVersion: github.com/fwegener83/esdm-flow-extension/flow/v0
+kind: flow
+name: given-background
+description: The story starts with an order that already exists before it begins.
+scope: { domain: shop }
+given:
+  - name: carol-ordered-earlier
+    boundedContext: ordering
+    aggregate: order
+    instance: o-9
+    event: placed
+    data: { orderId: o-9, customerId: c-carol, product: desk, quantity: 1, total: 300 }
+slices:
+  - name: clerk-ships-carols-order
+    type: command
+    trigger: { actor: warehouse-clerk }
+    aggregate: { boundedContext: ordering, aggregate: order, instance: o-9 }
+    when:
+      command: ship
+      data: { orderId: o-9 }
+      provenance: { orderId: input }
+    then:
+      events:
+        - event: shipped
+          # customerId comes from the state of o-9, established by the given.
+          data: { orderId: o-9, customerId: c-carol, shippedAt: "2026-10-05T14:30:00Z" }
+          provenance: { shippedAt: clock }

@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/model/read-model-without-projected-event
+    severity: warning
+    slice: bob-views-orders
+    path: readModel

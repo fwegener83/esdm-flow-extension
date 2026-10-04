@@ -1,0 +1,38 @@
+apiVersion: github.com/fwegener83/esdm-flow-extension/flow/v0
+kind: flow
+name: source-value-mismatch
+description: The invoice claims to take its amount from the order total, but the values differ.
+scope: { domain: shop }
+slices:
+  - name: alice-places-order
+    type: command
+    trigger: { actor: customer, persona: alice }
+    aggregate: { boundedContext: ordering, aggregate: order, instance: o-1, provenance: generated }
+    when:
+      command: place
+      data: { customerId: c-alice, product: book, quantity: 2, unitPrice: 12.5 }
+      provenance: { customerId: input, product: input, quantity: input, unitPrice: input }
+    then:
+      events:
+        - event: placed
+          data: { orderId: o-1, customerId: c-alice, product: book, quantity: 2, total: 25 }
+          provenance:
+            total:
+              derived:
+                from: [ { command: place, field: quantity }, { command: place, field: unitPrice } ]
+                rule: quantity × unitPrice
+  - name: invoice-for-alice
+    type: command
+    trigger:
+      policy: create-invoice-on-order-placed
+      reactsTo: { slice: alice-places-order, event: placed }
+    aggregate: { boundedContext: billing, aggregate: invoice, instance: i-1, provenance: generated }
+    when:
+      command: create
+      data: { orderId: o-1, amount: 30 }
+      provenance:
+        amount: { from: { slice: alice-places-order, event: placed, field: total } }
+    then:
+      events:
+        - event: created
+          data: { invoiceId: i-1, orderId: o-1, amount: 30 }

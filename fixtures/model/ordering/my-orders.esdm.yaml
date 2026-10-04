@@ -1,0 +1,53 @@
+apiVersion: schema.esdm.io/core/v1
+kind: read-model
+name: my-orders
+scope:
+  domain: shop
+  boundedContext: ordering
+paradigm: tabular
+schema:
+  type: array
+  items:
+    type: object
+    properties:
+      orderId: { type: string }
+      customerId: { type: string }
+      total: { type: number }
+      status: { type: string, enum: [placed, shipped, canceled] }
+    required: [orderId, customerId, total, status]
+projections:
+  - boundedContext: ordering
+    aggregate: order
+    event: placed
+    rule: Append a row with `orderId`, `customerId`, `total` and status `placed`.
+  - boundedContext: ordering
+    aggregate: order
+    event: shipped
+    rule: Set the status of the row with the matching `orderId` to `shipped`.
+  - boundedContext: ordering
+    aggregate: order
+    event: canceled
+    rule: Set the status of the row with the matching `orderId` to `canceled`.
+---
+apiVersion: schema.esdm.io/core/v1
+kind: query
+name: get-my-orders
+scope:
+  domain: shop
+  boundedContext: ordering
+readModel: my-orders
+parameters:
+  type: object
+  properties:
+    customerId: { type: string }
+  required: [customerId]
+result:
+  type: array
+  items:
+    type: object
+    properties:
+      orderId: { type: string }
+      total: { type: number }
+      status: { type: string, enum: [placed, shipped, canceled] }
+    required: [orderId, total, status]
+actors: [customer]

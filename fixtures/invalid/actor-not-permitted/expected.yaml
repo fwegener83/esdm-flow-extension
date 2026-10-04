@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/model/actor-not-permitted
+    severity: error
+    slice: clerk-places-order
+    path: trigger.actor

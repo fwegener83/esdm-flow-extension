@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/model/event-not-published-by-command
+    severity: error
+    slice: clerk-ships-order
+    path: then.events[canceled]

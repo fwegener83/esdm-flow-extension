@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/generated-value-not-fresh
+    severity: error
+    slice: bob-places-order
+    path: aggregate.instance

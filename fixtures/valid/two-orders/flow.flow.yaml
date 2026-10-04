@@ -1,0 +1,176 @@
+apiVersion: github.com/fwegener83/esdm-flow-extension/flow/v0
+kind: flow
+name: two-orders
+description: >
+  Alice and Bob each place an order. Billing invoices Alice's order. Bob
+  looks up his orders and cancels his. A clerk ships Alice's order; when
+  Alice later tries to cancel it, the cancellation is rejected.
+scope:
+  domain: shop
+slices:
+  - name: alice-places-order
+    type: command
+    trigger: { actor: customer, persona: alice }
+    aggregate:
+      boundedContext: ordering
+      aggregate: order
+      instance: o-1
+      provenance: generated
+    when:
+      command: place
+      data: { customerId: c-alice, product: book, quantity: 2, unitPrice: 12.5 }
+      provenance:
+        customerId: input
+        product: input
+        quantity: input
+        unitPrice: input
+    then:
+      events:
+        - event: placed
+          data: { orderId: o-1, customerId: c-alice, product: book, quantity: 2, total: 25 }
+          provenance:
+            total:
+              derived:
+                from:
+                  - { command: place, field: quantity }
+                  - { command: place, field: unitPrice }
+                rule: quantity × unitPrice
+
+  - name: bob-places-order
+    type: command
+    trigger: { actor: customer, persona: bob }
+    aggregate:
+      boundedContext: ordering
+      aggregate: order
+      instance: o-2
+      provenance: generated
+    when:
+      command: place
+      data: { customerId: c-bob, product: lamp, quantity: 1, unitPrice: 40 }
+      provenance:
+        customerId: input
+        product: input
+        quantity: input
+        unitPrice: input
+    then:
+      events:
+        - event: placed
+          data: { orderId: o-2, customerId: c-bob, product: lamp, quantity: 1, total: 40 }
+          provenance:
+            total:
+              derived:
+                from:
+                  - { command: place, field: quantity }
+                  - { command: place, field: unitPrice }
+                rule: quantity × unitPrice
+
+  - name: invoice-for-alice
+    type: command
+    trigger:
+      policy: create-invoice-on-order-placed
+      reactsTo: { slice: alice-places-order, event: placed }
+    aggregate:
+      boundedContext: billing
+      aggregate: invoice
+      instance: i-1
+      provenance: generated
+    when:
+      command: create
+      data: { orderId: o-1, amount: 25 }
+      provenance:
+        # Billing calls it `amount`, ordering calls it `total`.
+        amount: { from: { slice: alice-places-order, event: placed, field: total } }
+    then:
+      events:
+        - event: created
+          data: { invoiceId: i-1, orderId: o-1, amount: 25 }
+
+  - name: bob-views-orders
+    type: read-model
+    trigger: { actor: customer, persona: bob }
+    readModel: { boundedContext: ordering, readModel: my-orders }
+    when:
+      query: get-my-orders
+      parameters: { customerId: c-bob }
+      provenance: { customerId: input }
+    then:
+      result:
+        - { orderId: o-2, total: 40, status: placed }
+      provenance:
+        0.status:
+          derived:
+            from: [ { slice: bob-places-order, event: placed } ]
+            rule: A row is `placed` after `placed` and before `shipped` or `canceled`.
+
+  - name: bob-cancels-order
+    type: command
+    trigger: { actor: customer, persona: bob }
+    aggregate:
+      boundedContext: ordering
+      aggregate: order
+      instance: o-2
+    when:
+      command: cancel
+      data: { orderId: o-2, reason: found it cheaper }
+      provenance:
+        reason: input
+    then:
+      events:
+        - event: canceled
+          data: { orderId: o-2, reason: found it cheaper, canceledAt: "2026-10-05T09:12:00Z" }
+          provenance:
+            canceledAt: clock
+
+  - name: clerk-ships-order
+    type: command
+    trigger: { actor: warehouse-clerk }
+    aggregate:
+      boundedContext: ordering
+      aggregate: order
+      instance: o-1
+    when:
+      command: ship
+      data: { orderId: o-1 }
+      provenance:
+        # Scanned from the packing slip; the clerk has seen no read model in this story.
+        orderId: input
+    then:
+      events:
+        - event: shipped
+          # customerId comes from the state of o-1 (its earlier `placed`).
+          data: { orderId: o-1, customerId: c-alice, shippedAt: "2026-10-05T14:30:00Z" }
+          provenance:
+            shippedAt: clock
+
+  - name: alice-views-orders
+    type: read-model
+    trigger: { actor: customer, persona: alice }
+    readModel: { boundedContext: ordering, readModel: my-orders }
+    when:
+      query: get-my-orders
+      parameters: { customerId: c-alice }
+      provenance: { customerId: input }
+    then:
+      result:
+        - { orderId: o-1, total: 25, status: shipped }
+      provenance:
+        0.status:
+          derived:
+            from: [ { slice: clerk-ships-order, event: shipped } ]
+            rule: A row is `shipped` once `shipped` has happened.
+
+  - name: alice-tries-to-cancel
+    type: command
+    trigger: { actor: customer, persona: alice }
+    aggregate:
+      boundedContext: ordering
+      aggregate: order
+      instance: o-1
+    when:
+      command: cancel
+      data: { orderId: o-1, reason: changed my mind }
+      provenance:
+        reason: input
+    then:
+      rejection:
+        invariant: shipped-orders-cannot-be-canceled
