@@ -1,0 +1,46 @@
+apiVersion: schema.esdm.io/core/v1
+kind: aggregate
+name: invoice
+scope:
+  domain: shop
+  boundedContext: billing
+identifiedBy:
+  source: generated
+  generator: uuid
+state:
+  type: object
+  properties:
+    invoiceId: { type: string }
+    orderId: { type: string }
+    amount: { type: number }
+  required: [invoiceId, orderId, amount]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: command
+name: create
+scope:
+  domain: shop
+  boundedContext: billing
+  aggregate: invoice
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+    amount: { type: number }
+  required: [orderId, amount]
+publishes: [created]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: event
+name: created
+scope:
+  domain: shop
+  boundedContext: billing
+  aggregate: invoice
+data:
+  type: object
+  properties:
+    invoiceId: { type: string }
+    orderId: { type: string }
+    amount: { type: number }
+  required: [invoiceId, orderId, amount]

@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/unsourced-value
+    severity: error
+    slice: clerk-ships-order-2
+    path: then.events[shipped].data.customerId

@@ -1,0 +1,118 @@
+apiVersion: schema.esdm.io/core/v1
+kind: aggregate
+name: order
+scope:
+  domain: shop
+  boundedContext: ordering
+identifiedBy:
+  source: generated
+  generator: uuid
+state:
+  type: object
+  properties:
+    orderId: { type: string }
+    customerId: { type: string }
+    product: { type: string }
+    quantity: { type: integer }
+    total: { type: number }
+    status: { type: string, enum: [placed, shipped, canceled] }
+  required: [orderId, customerId, product, quantity, total, status]
+invariants:
+  - name: shipped-orders-cannot-be-canceled
+    rule: An order whose status is `shipped` rejects cancellation.
+---
+apiVersion: schema.esdm.io/core/v1
+kind: command
+name: place
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    customerId: { type: string }
+    product: { type: string }
+    quantity: { type: integer, minimum: 1 }
+    unitPrice: { type: number }
+  required: [customerId, product, quantity, unitPrice]
+publishes: [placed]
+actors: [customer]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: event
+name: placed
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+    customerId: { type: string }
+    product: { type: string }
+    quantity: { type: integer }
+    total: { type: number }
+  required: [orderId, customerId, product, quantity, total]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: command
+name: ship
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+  required: [orderId]
+publishes: [shipped]
+actors: [warehouse-clerk]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: event
+name: shipped
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+    customerId: { type: string }
+    shippedAt: { type: string, format: date-time }
+  required: [orderId, customerId, shippedAt]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: command
+name: cancel
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+    reason: { type: string }
+  required: [orderId, reason]
+publishes: [canceled]
+actors: [customer]
+---
+apiVersion: schema.esdm.io/core/v1
+kind: event
+name: canceled
+scope:
+  domain: shop
+  boundedContext: ordering
+  aggregate: order
+data:
+  type: object
+  properties:
+    orderId: { type: string }
+    reason: { type: string }
+    canceledAt: { type: string, format: date-time }
+  required: [orderId, reason, canceledAt]

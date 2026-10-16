@@ -1,0 +1,15 @@
+apiVersion: schema.esdm.io/core/v1
+kind: actor
+name: customer
+scope:
+  domain: shop
+  boundedContext: ordering
+type: human
+---
+apiVersion: schema.esdm.io/core/v1
+kind: actor
+name: warehouse-clerk
+scope:
+  domain: shop
+  boundedContext: ordering
+type: human

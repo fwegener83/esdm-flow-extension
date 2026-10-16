@@ -1,0 +1,16 @@
+apiVersion: github.com/fwegener83/esdm-flow-extension/flow/v0
+kind: flow
+name: read-model-without-projected-event
+description: Bob looks at his orders before anything has happened in the story.
+scope: { domain: shop }
+slices:
+  - name: bob-views-orders
+    type: read-model
+    trigger: { actor: customer, persona: bob }
+    readModel: { boundedContext: ordering, readModel: my-orders }
+    when:
+      query: get-my-orders
+      parameters: { customerId: c-bob }
+      provenance: { customerId: input }
+    then:
+      result: []

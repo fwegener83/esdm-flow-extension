@@ -1,0 +1,10 @@
+apiVersion: schema.esdm.io/core/v1
+kind: context-mapping
+name: ordering-billing
+type: customer-supplier
+customer:
+  domain: shop
+  boundedContext: billing
+supplier:
+  domain: shop
+  boundedContext: ordering

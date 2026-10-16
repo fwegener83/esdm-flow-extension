@@ -1,0 +1,273 @@
+# Extension schema for flows: stories told across consistency units.
+#
+# A `flow` document tells one story as an ordered list of slices. Each
+# slice is one cause and its effect, centered on exactly one consistency
+# unit. Slices reference artifacts of an ESDM core model by name and
+# carry concrete values (occurrences); they never declare core artifacts.
+#
+# This schema covers only the shape of a flow document. Everything that
+# needs the core model (references resolve, commands belong to their
+# aggregate, values conform to core schemas) and everything that needs
+# the whole story (causality, provenance) is a rule; see spec.md.
+#
+# Data shapes deliberately mirror the ESDM Given-When-Then extension
+# (`command` + `data`, `event` + `data`, `rejection.invariant`,
+# `query` + `parameters`, `result`) so that every slice reads as a
+# GWT scenario.
+#
+# File convention: `*.flow.yaml`. Not `*.esdm.yaml`, because `esdm lint`
+# rejects unknown apiVersions in its own files; see spec.md §3.4.
+$id: "https://github.com/fwegener83/esdm-flow-extension/flow/v0"
+$schema: "https://json-schema.org/draft/2020-12/schema"
+x-esdm-schema-revision: "0.1.0"
+x-esdm-file-suffix: ".flow.yaml"
+x-esdm-document-separator: "---"
+description: "Extension schema for flows. A `flow` document tells one story through an ESDM domain as an ordered list of slices. Command slices show one command against one aggregate instance and its outcome; read-model slices show what a read model contains at that point of the story. Values are concrete (occurrences of core artifacts) and may carry provenance annotations that state where each value comes from."
+
+$defs:
+  name:
+    # Same pattern as the core's `$defs/name`. Inlined so the extension
+    # validates in isolation, as the ESDM extensions do.
+    type: string
+    pattern: "^[a-z][a-z0-9-]*$"
+
+  fieldPath:
+    # Dot-separated path into a data value; numeric segments index arrays.
+    type: string
+    pattern: "^[^.]+(\\.[^.]+)*$"
+
+  instance:
+    # Identity value of one aggregate instance, compared by value.
+    type: string
+    minLength: 1
+
+  data:
+    # Concrete values. Objects for commands, events and parameters;
+    # read-model content and results may be arrays (tabular paradigm).
+    type: [object, array]
+
+  reference:
+    # Points at one occurrence in a slice or given entry, optionally at
+    # one field in it. `slice` defaults to the current slice.
+    type: object
+    properties:
+      slice: { $ref: "#/$defs/name" }
+      event: { $ref: "#/$defs/name" }
+      command: { $ref: "#/$defs/name" }
+      query: { $ref: "#/$defs/name" }
+      readModel: { $ref: "#/$defs/name" }
+      field: { $ref: "#/$defs/fieldPath" }
+    oneOf:
+      - required: [event]
+      - required: [command]
+      - required: [query]
+      - required: [readModel]
+    additionalProperties: false
+
+  source:
+    oneOf:
+      - type: string
+        enum: [input, generated, clock, constant]
+      - type: object
+        properties:
+          from:
+            allOf:
+              - $ref: "#/$defs/reference"
+              - required: [field]
+        required: [from]
+        additionalProperties: false
+      - type: object
+        properties:
+          derived:
+            type: object
+            properties:
+              from:
+                type: array
+                minItems: 1
+                items: { $ref: "#/$defs/reference" }
+              rule:
+                type: string
+                minLength: 1
+            required: [from, rule]
+            additionalProperties: false
+        required: [derived]
+        additionalProperties: false
+
+  provenance:
+    # Field path → source. Fields without an entry are traced implicitly.
+    type: object
+    propertyNames: { $ref: "#/$defs/fieldPath" }
+    additionalProperties: { $ref: "#/$defs/source" }
+    minProperties: 1
+
+  actorTrigger:
+    type: object
+    properties:
+      actor: { $ref: "#/$defs/name" }
+      persona: { $ref: "#/$defs/name" }
+    required: [actor]
+    additionalProperties: false
+
+  policyTrigger:
+    type: object
+    properties:
+      policy: { $ref: "#/$defs/name" }
+      reactsTo:
+        type: object
+        properties:
+          slice: { $ref: "#/$defs/name" }
+          event: { $ref: "#/$defs/name" }
+        required: [slice, event]
+        additionalProperties: false
+    required: [policy, reactsTo]
+    additionalProperties: false
+
+  givenEntry:
+    type: object
+    properties:
+      name: { $ref: "#/$defs/name" }
+      boundedContext: { $ref: "#/$defs/name" }
+      aggregate: { $ref: "#/$defs/name" }
+      instance: { $ref: "#/$defs/instance" }
+      event: { $ref: "#/$defs/name" }
+      data: { type: object }
+    required: [name, boundedContext, aggregate, event, data]
+    additionalProperties: false
+
+  commandSlice:
+    type: object
+    properties:
+      name: { $ref: "#/$defs/name" }
+      type: { const: command }
+      description: { type: string }
+      trigger:
+        oneOf:
+          - $ref: "#/$defs/actorTrigger"
+          - $ref: "#/$defs/policyTrigger"
+      aggregate:
+        type: object
+        properties:
+          boundedContext: { $ref: "#/$defs/name" }
+          aggregate: { $ref: "#/$defs/name" }
+          instance: { $ref: "#/$defs/instance" }
+          provenance:
+            # Only an instance's creation is annotated; see spec.md §7.7.
+            const: generated
+        required: [boundedContext, aggregate]
+        additionalProperties: false
+      when:
+        type: object
+        properties:
+          command: { $ref: "#/$defs/name" }
+          data: { type: object }
+          provenance: { $ref: "#/$defs/provenance" }
+        required: [command, data]
+        additionalProperties: false
+      then:
+        oneOf:
+          - type: object
+            properties:
+              events:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  properties:
+                    event: { $ref: "#/$defs/name" }
+                    data: { type: object }
+                    provenance: { $ref: "#/$defs/provenance" }
+                  required: [event, data]
+                  additionalProperties: false
+            required: [events]
+            additionalProperties: false
+          - type: object
+            properties:
+              rejection:
+                type: object
+                properties:
+                  invariant: { $ref: "#/$defs/name" }
+                required: [invariant]
+                additionalProperties: false
+            required: [rejection]
+            additionalProperties: false
+    required: [name, type, aggregate, when, then]
+    additionalProperties: false
+
+  readModelSlice:
+    type: object
+    properties:
+      name: { $ref: "#/$defs/name" }
+      type: { const: read-model }
+      description: { type: string }
+      trigger: { $ref: "#/$defs/actorTrigger" }
+      readModel:
+        type: object
+        properties:
+          boundedContext: { $ref: "#/$defs/name" }
+          readModel: { $ref: "#/$defs/name" }
+        required: [boundedContext, readModel]
+        additionalProperties: false
+      when:
+        type: object
+        properties:
+          query: { $ref: "#/$defs/name" }
+          parameters: { type: object }
+          provenance: { $ref: "#/$defs/provenance" }
+        required: [query]
+        additionalProperties: false
+      then:
+        oneOf:
+          - type: object
+            properties:
+              result: { $ref: "#/$defs/data" }
+              provenance: { $ref: "#/$defs/provenance" }
+            required: [result]
+            additionalProperties: false
+          - type: object
+            properties:
+              readModel: { $ref: "#/$defs/data" }
+              provenance: { $ref: "#/$defs/provenance" }
+            required: [readModel]
+            additionalProperties: false
+    required: [name, type, readModel, then]
+    additionalProperties: false
+    # `then.result` requires `when` (a query); `then.readModel` forbids it.
+    allOf:
+      - if:
+          properties:
+            then: { required: [result] }
+        then:
+          required: [when]
+      - if:
+          properties:
+            then: { required: [readModel] }
+        then:
+          not: { required: [when] }
+
+type: object
+properties:
+  apiVersion:
+    const: github.com/fwegener83/esdm-flow-extension/flow/v0
+  kind:
+    const: flow
+  name: { $ref: "#/$defs/name" }
+  description: { type: string }
+  scope:
+    type: object
+    properties:
+      domain: { $ref: "#/$defs/name" }
+    required: [domain]
+    additionalProperties: false
+  given:
+    type: array
+    minItems: 1
+    items: { $ref: "#/$defs/givenEntry" }
+  slices:
+    type: array
+    minItems: 1
+    items:
+      oneOf:
+        - $ref: "#/$defs/commandSlice"
+        - $ref: "#/$defs/readModelSlice"
+required: [apiVersion, kind, name, scope, slices]
+additionalProperties: false

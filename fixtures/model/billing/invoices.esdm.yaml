@@ -1,0 +1,38 @@
+apiVersion: schema.esdm.io/core/v1
+kind: read-model
+name: invoices
+scope:
+  domain: shop
+  boundedContext: billing
+paradigm: tabular
+schema:
+  type: array
+  items:
+    type: object
+    properties:
+      invoiceId: { type: string }
+      orderId: { type: string }
+      amount: { type: number }
+    required: [invoiceId, orderId, amount]
+projections:
+  - boundedContext: billing
+    aggregate: invoice
+    event: created
+    rule: Append a row with `invoiceId`, `orderId` and `amount`.
+---
+apiVersion: schema.esdm.io/core/v1
+kind: query
+name: list-invoices
+scope:
+  domain: shop
+  boundedContext: billing
+readModel: invoices
+result:
+  type: array
+  items:
+    type: object
+    properties:
+      invoiceId: { type: string }
+      orderId: { type: string }
+      amount: { type: number }
+    required: [invoiceId, orderId, amount]

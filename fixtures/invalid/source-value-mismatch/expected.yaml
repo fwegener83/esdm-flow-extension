@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/source-value-mismatch
+    severity: error
+    slice: invoice-for-alice
+    path: when.provenance.amount

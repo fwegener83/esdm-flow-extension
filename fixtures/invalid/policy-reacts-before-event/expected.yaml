@@ -1,0 +1,10 @@
+model: ../../model
+findings:
+  - rule: flow/structure/reference-not-earlier
+    severity: error
+    slice: invoice-for-alice
+    path: trigger.reactsTo
+  - rule: flow/structure/reference-not-earlier
+    severity: error
+    slice: invoice-for-alice
+    path: when.provenance.amount.from

@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/unsourced-value
+    severity: error
+    slice: alice-cancels-order
+    path: when.data.orderId

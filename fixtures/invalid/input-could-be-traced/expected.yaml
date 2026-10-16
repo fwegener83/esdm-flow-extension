@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/input-could-be-traced
+    severity: warning
+    slice: bob-cancels-order
+    path: when.provenance.orderId

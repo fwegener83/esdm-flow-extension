@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/provenance/entry-point-not-allowed
+    severity: error
+    slice: alice-places-order
+    path: then.events[placed].provenance.product

@@ -1,0 +1,6 @@
+model: ../../model
+findings:
+  - rule: flow/model/data-schema-violation
+    severity: error
+    slice: alice-places-order
+    path: when.data.quantity
